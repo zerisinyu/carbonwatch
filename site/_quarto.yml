@@ -1,0 +1,19 @@
+project:
+  type: website
+
+website:
+  title: "When Should a Computer Work?"
+  description: "Carbon-aware computing: how timing a compute job to the grid cuts its CO2"
+
+format:
+  html:
+    theme: cosmo
+    toc: false
+    grid:
+      body-width: 800px
+    mainfont: "Georgia, serif"
+    fig-width: 8
+    fig-height: 4.5
+
+execute:
+  freeze: auto

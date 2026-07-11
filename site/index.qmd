@@ -1,0 +1,49 @@
+---
+title: "When Should a Computer Work?"
+subtitle: "The same computation, run four hours apart, can carry half the carbon. A data story on carbon-aware computing — draft skeleton."
+---
+
+```{python}
+#| echo: false
+import pandas as pd
+from pathlib import Path
+
+processed = Path("../data/processed")
+ci = pd.read_parquet(processed / "uk_ci_hourly.parquet")["ci_actual"]
+sim = pd.read_parquet(processed / "uk_sim_daily.parquet")
+totals = sim.sum()
+saving = 100 * (1 - totals["forecast"] / totals["naive"])
+```
+
+*(Draft structure — prose placeholders; German data pending. Numbers below are live from the UK pipeline.)*
+
+## The grid breathes
+
+Electricity is not equally clean around the clock. Every kilowatt-hour you draw
+at 8pm carries more CO₂ than one drawn at noon, because the mix of power plants
+behind it changes hour by hour.
+
+```{python}
+#| echo: false
+#| fig-cap: "Mean grid carbon intensity by hour of day and month, Great Britain 2024–2025."
+import plotly.express as px
+
+heat = ci.groupby([ci.index.month, ci.index.hour]).mean().unstack(0)
+fig = px.imshow(
+    heat.T,
+    labels=dict(x="hour of day", y="month", color="gCO₂/kWh"),
+    color_continuous_scale="RdYlGn_r",
+    aspect="auto",
+)
+fig.update_layout(margin=dict(l=0, r=0, t=10, b=0))
+fig.show()
+```
+
+## The experiment
+
+One four-hour training job per day, free to run at any hour. Scheduled by our
+day-ahead forecast instead of at a random time, over a year it emitted
+**`{python} f"{saving:.0f}%"` less CO₂** — with perfect foresight the ceiling is
+`{python} f"{100 * (1 - totals['oracle'] / totals['naive']):.0f}%"`.
+
+*(Full narrative, the drag-the-job interactive, and the German story to come.)*
