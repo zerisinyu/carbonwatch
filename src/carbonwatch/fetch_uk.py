@@ -50,8 +50,8 @@ def fetch_uk_intensity(start: datetime, end: datetime) -> pd.DataFrame:
             records.append(
                 {
                     "time": row["from"],
-                    "ci_actual": row["intensity"]["actual"],
-                    "ci_forecast": row["intensity"]["forecast"],
+                    "ci_actual": row["intensity"].get("actual"),
+                    "ci_forecast": row["intensity"].get("forecast"),
                 }
             )
         time.sleep(REQUEST_PAUSE_S)
