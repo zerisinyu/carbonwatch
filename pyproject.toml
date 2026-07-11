@@ -1,0 +1,28 @@
+[project]
+name = "carbonwatch"
+version = "0.1.0"
+description = "Carbon-aware computing: German grid carbon-intensity pipeline, forecasting, and scheduling simulation"
+readme = "README.md"
+authors = [
+    { name = "zeri.sinyu", email = "zeriyoungluvs7@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "entsoe-py>=0.8.0",
+    "lightgbm>=4.6.0",
+    "pandas>=3.0.3",
+    "plotly>=6.9.0",
+    "pyarrow>=25.0.0",
+    "python-dotenv>=1.2.2",
+    "requests>=2.34.2",
+    "statsforecast>=2.0.3",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.28,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
