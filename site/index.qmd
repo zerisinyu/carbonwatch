@@ -278,8 +278,8 @@ published. The scheduling simulation settles every policy against actual
 intensity. The job spec (4 h at 5 kW ≈ one 8-GPU node) is a scale anchor —
 percentages are independent of it.
 
-Code, tests, and reproduction steps: **[github repository]** — every figure on
-this page rebuilds from public APIs with two commands.
+Code, tests, and reproduction steps: **[github.com/zerisinyu/carbonwatch](https://github.com/zerisinyu/carbonwatch)** —
+every figure on this page rebuilds from public APIs with a handful of commands.
 
 ::: {.small-note}
 Data: ENTSO-E Transparency Platform · NESO Carbon Intensity API · Energy-Charts
