@@ -1,0 +1,58 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "When should a computer work?",
+    "section": "",
+    "text": "−60%\n\n\nCO₂ — same job, same day, better hour (14 Jul 2025)\n\n\n\n\n96%\n\n\nof the theoretical saving captured by a forecast\n\n\n\n\n629 kg\n\n\nCO₂ avoided per job-year — ≈ 5,239 km by car"
+  },
+  {
+    "objectID": "index.html#the-grid-breathes",
+    "href": "index.html#the-grid-breathes",
+    "title": "When should a computer work?",
+    "section": "The grid breathes",
+    "text": "The grid breathes\nOn 14 July 2025, Germany’s electricity was not one product but many. At six in the evening, with solar fading and demand peaking, a kilowatt-hour carried 546 g of CO₂. At noon, with photovoltaics flooding the grid, the same kilowatt-hour carried 221 g — 60% less.\nMost electricity users can’t choose their hour. A computer often can. Training runs, batch inference, data pipelines — they need hours of power, but rarely these particular hours. Drag the job below and watch its footprint change.\n\n\n                            \n                                            \nOne 4-hour compute job (5 kW) on 14 July 2025, DE grid. Slider = start hour; emissions settle against actual carbon intensity.\n\n\n\nThe cheapest climate action a computer can take is to look at the clock."
+  },
+  {
+    "objectID": "index.html#not-one-lucky-day",
+    "href": "index.html#not-one-lucky-day",
+    "title": "When should a computer work?",
+    "section": "Not one lucky day",
+    "text": "Not one lucky day\nThat July day is not an outlier. Across 2024–2025, the median German day offered a 175 gCO₂/kWh gap between its cleanest and dirtiest four-hour window — the clean one landing between 09:00 and 14:00 on 72% of days, when solar output peaks. The pattern is strongly seasonal: deep, reliable midday valleys in summer, flatter and windier days in winter.\n\n\n                            \n                                            \nMean carbon intensity of German electricity by hour and month, 2024–2025. Computed from ENTSO-E generation data."
+  },
+  {
+    "objectID": "index.html#can-you-see-it-coming",
+    "href": "index.html#can-you-see-it-coming",
+    "title": "When should a computer work?",
+    "section": "Can you see it coming?",
+    "text": "Can you see it coming?\nA schedule is only as good as its forecast: at midnight you must commit tomorrow’s plan. We trained a gradient-boosted model on 2024 to predict hourly carbon intensity up to 36 hours ahead, then tested it on all of 2025 — never letting it see information that wasn’t public at forecast time.\nThe decisive ingredient is not the model. It is Germany’s day-ahead wind and solar forecasts, published daily by grid operators. With them, mid-range error drops by more than half; the carbon intensity of a solar-heavy grid is, to a large degree, a weather forecast wearing an emissions factor.\n\n\n                            \n                                            \nMean absolute error of day-ahead CI forecasts by horizon, test year 2025. Lower is better.\n\n\nOverall the model beats a seasonal-naïve baseline by 42% — and in the window that matters for scheduling (the next 24 hours), its error is 31 g/kWh against the baseline’s 76."
+  },
+  {
+    "objectID": "index.html#the-experiment",
+    "href": "index.html#the-experiment",
+    "title": "When should a computer work?",
+    "section": "The experiment",
+    "text": "The experiment\nSo: one four-hour training job at five kilowatts, every day of 2025, free to start at any hour. Three schedulers compete. One picks a random hour — the computer that doesn’t look at the clock. One follows our forecast, committed the night before. One cheats: perfect knowledge of the future, the physical ceiling.\n\n\n                            \n                                            \nTotal 2025 emissions of the daily 4-hour job under three scheduling policies, DE grid.\n\n\nThe forecast scheduler cut emissions by 28%. The omniscient one managed 29%. In other words, an ordinary public-data forecast captures 96% of the theoretical maximum — on a solar-shaped grid, tomorrow’s clean window is simply not that hard to see coming. Per job that is 629 kg of CO₂ a year, the footprint of driving 5,239 km. Across a fleet of a thousand such jobs: 629 tonnes."
+  },
+  {
+    "objectID": "index.html#or-just-move",
+    "href": "index.html#or-just-move",
+    "title": "When should a computer work?",
+    "section": "Or just move?",
+    "text": "Or just move?\nTiming is not the only degree of freedom — batch compute can also change country. Great Britain’s grid, gas-and-wind shaped and free of lignite, ran cleaner than Germany’s on 99% of 2025 days.\n\n\n                            \n                                            \nMean carbon intensity by month, 2024–2025: Germany vs Great Britain.\n\n\n\n\n                            \n                                            \nThe same daily job, 2025 total: staying and timing vs moving. Green = Germany, blue = Great Britain.\n\n\nMoving beats waiting: relocating the job to Britain saves more than perfect timing in Germany ever could. But the comparison is not symmetric. Changing when a job runs costs nothing — no data transfer, no residency questions, no second data centre. Changing where is an infrastructure decision. The honest reading: timing is the free lever, geography is the big one, and they compound — a timed job in Britain emits 71% less than a random one in Germany."
+  },
+  {
+    "objectID": "index.html#what-this-doesnt-fix",
+    "href": "index.html#what-this-doesnt-fix",
+    "title": "When should a computer work?",
+    "section": "What this doesn’t fix",
+    "text": "What this doesn’t fix\nCarbon-aware scheduling optimises when, not how much. The job still burns the same kilowatt-hours; the grid still burns what it burns. Three honest limits:\n\nAverage, not marginal. We price each hour at the grid’s average intensity. The marginal plant answering one extra kilowatt is often gas regardless of hour, so system-level savings from small shifts are smaller than average-based accounting suggests. At fleet scale, though, demand that reliably chases clean hours changes what gets built — the long-run signal points the same way.\nProduction, not consumption. Our intensity ignores imports and exports; German midday solar partly flows abroad, and winter imports flow in.\nTiming is a complement, not an alibi. The real decarbonisation is the grid’s own. Flexible demand just stops wasting the clean hours the grid already produces — a lever that is real, measurable, and free, but a lever, not an engine."
+  },
+  {
+    "objectID": "index.html#methods",
+    "href": "index.html#methods",
+    "title": "When should a computer work?",
+    "section": "Methods",
+    "text": "Methods\nCarbon intensity is computed from ENTSO-E actual generation per production type for bidding zone DE-LU (15-minute resolution, 2024–2025), weighted by IPCC lifecycle emission factors per fuel, resampled hourly. The series correlates at r = 0.992 with the independent Energy-Charts (Fraunhofer ISE) reference; our conservative lignite factor gives a −74 g/kWh level offset that does not affect timing decisions. British data comes from the NESO Carbon Intensity API.\nThe forecaster is a LightGBM model over lagged CI, calendar features, and ENTSO-E day-ahead wind, solar, and load forecasts, trained on 2024, tested out-of-sample on 2025 from daily midnight origins, horizons 1–36 h. Day-ahead exogenous forecasts are only used for horizons where they were genuinely published. The scheduling simulation settles every policy against actual intensity. The job spec (4 h at 5 kW ≈ one 8-GPU node) is a scale anchor — percentages are independent of it.\nCode, tests, and reproduction steps: [github repository] — every figure on this page rebuilds from public APIs with two commands.\n\nData: ENTSO-E Transparency Platform · NESO Carbon Intensity API · Energy-Charts (Fraunhofer ISE). Analysis and site: Python, LightGBM, Plotly, Quarto. July 2026."
+  }
+]
