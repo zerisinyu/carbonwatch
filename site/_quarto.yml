@@ -2,18 +2,20 @@ project:
   type: website
 
 website:
-  title: "When Should a Computer Work?"
+  title: "carbonwatch"
   description: "Carbon-aware computing: how timing a compute job to the grid cuts its CO2"
+  navbar: false
 
 format:
   html:
-    theme: cosmo
+    theme: theme-berlin.scss
     toc: false
     grid:
-      body-width: 800px
-    mainfont: "Georgia, serif"
+      body-width: 900px
     fig-width: 8
     fig-height: 4.5
+    anchor-sections: false
+    link-external-newwindow: true
 
 execute:
   freeze: auto

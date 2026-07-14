@@ -1,49 +1,288 @@
 ---
-title: "When Should a Computer Work?"
-subtitle: "The same computation, run four hours apart, can carry half the carbon. A data story on carbon-aware computing — draft skeleton."
+title: "When should a computer work?"
+subtitle: "Electricity is not equally clean around the clock. Give a computation the freedom to pick its hour, and it can shed a quarter of its carbon — predictably, reliably, for free. A data story from the German power grid."
 ---
 
 ```{python}
 #| echo: false
-import pandas as pd
+#| output: false
 from pathlib import Path
 
-processed = Path("../data/processed")
-ci = pd.read_parquet(processed / "uk_ci_hourly.parquet")["ci_actual"]
-sim = pd.read_parquet(processed / "uk_sim_daily.parquet")
+import pandas as pd
+import plotly.graph_objects as go
+
+from carbonwatch import viz
+from carbonwatch.viz import ACCENT, CONFIG, CYAN, GRID, INK, INK2, LIME, MAGENTA, MUTED, ORANGE, REF_GRAY, SEQ
+
+P = Path("../data/processed")
+ENERGY = 20.0  # kWh: 4h x 5kW
+
+day = pd.read_parquet(P / "example_day.parquet")["ci"].tz_convert("Europe/Berlin")
+heat_de = pd.read_parquet(P / "heatmap_de.parquet")
+daily = pd.read_parquet(P / "daily_windows.parquet")
+mae = pd.read_parquet(P / "de_backtest_mae.parquet")
+sim = pd.read_parquet(P / "de_sim_daily.parquet")
+spatial = pd.read_parquet(P / "spatial_sim.parquet")
+
+# headline numbers
+vals = day.to_numpy()
+kg = {s: float(vals[s : s + 4].mean() * ENERGY / 1000) for s in range(21)}
+best_s, worst_s = min(kg, key=kg.get), max(kg, key=kg.get)
+day_saving = 1 - kg[best_s] / kg[worst_s]
+
+d_de = daily[daily.country == "DE"]
+gap_med = d_de.gap.median()
+midday_share = d_de.best_start.between(9, 14).mean()
+
 totals = sim.sum()
-saving = 100 * (1 - totals["forecast"] / totals["naive"])
+save_fc = 1 - totals["forecast"] / totals["naive"]
+save_or = 1 - totals["oracle"] / totals["naive"]
+headroom = (totals["naive"] - totals["forecast"]) / (totals["naive"] - totals["oracle"])
+kg_saved = totals["naive"] - totals["forecast"]
+
+st = spatial.sum()
+uk_share = (spatial.uk_oracle < spatial.de_oracle).mean()
+
+skill = 1 - mae.loc["overall", "lgbm_exog"] / mae.loc["overall", "seasonal_naive"]
 ```
 
-*(Draft structure — prose placeholders; German data pending. Numbers below are live from the UK pipeline.)*
+::: {.stat-row}
+<div class="stat"><div class="stat-value">`{python} f"−{day_saving:.0%}".replace("%","")`%</div><div class="stat-label">CO₂ — same job, same day, better hour (14 Jul 2025)</div></div>
+<div class="stat"><div class="stat-value">`{python} f"{headroom:.0%}".replace("%","")`%</div><div class="stat-label">of the theoretical saving captured by a forecast</div></div>
+<div class="stat"><div class="stat-value">`{python} f"{kg_saved:.0f}"` kg</div><div class="stat-label">CO₂ avoided per job-year — ≈ `{python} f"{kg_saved/0.12:,.0f}"` km by car</div></div>
+:::
 
 ## The grid breathes
 
-Electricity is not equally clean around the clock. Every kilowatt-hour you draw
-at 8pm carries more CO₂ than one drawn at noon, because the mix of power plants
-behind it changes hour by hour.
+On 14 July 2025, Germany's electricity was not one product but many. At six in
+the evening, with solar fading and demand peaking, a kilowatt-hour carried
+**`{python} f"{vals[worst_s:worst_s+4].mean():.0f}"` g of CO₂**. At noon, with
+photovoltaics flooding the grid, the same kilowatt-hour carried
+**`{python} f"{vals[best_s:best_s+4].mean():.0f}"` g** — `{python} f"{day_saving:.0%}"` less.
+
+Most electricity users can't choose their hour. A computer often can. Training
+runs, batch inference, data pipelines — they need hours of power, but rarely
+*these particular* hours. Drag the job below and watch its footprint change.
 
 ```{python}
 #| echo: false
-#| fig-cap: "Mean grid carbon intensity by hour of day and month, Great Britain 2024–2025."
-import plotly.express as px
+#| fig-cap: "One 4-hour compute job (5 kW) on 14 July 2025, DE grid. Slider = start hour; emissions settle against actual carbon intensity."
+hours = list(range(24))
 
-heat = ci.groupby([ci.index.month, ci.index.hour]).mean().unstack(0)
-fig = px.imshow(
-    heat.T,
-    labels=dict(x="hour of day", y="month", color="gCO₂/kWh"),
-    color_continuous_scale="RdYlGn_r",
-    aspect="auto",
+def window(s):
+    shapes = [dict(type="rect", x0=s - 0.5, x1=s + 3.5, y0=0, y1=1, yref="paper",
+                   fillcolor="rgba(200,240,67,0.10)", line=dict(color=ACCENT, width=1))]
+    annos = [dict(x=s + 1.5, y=1.06, yref="paper", showarrow=False,
+                  text=f"<b>{kg[s]:.1f} kg CO₂</b>", font=dict(family=viz.MONO, size=13, color=ACCENT))]
+    return shapes, annos
+
+fig = go.Figure(go.Scatter(
+    x=hours, y=vals, mode="lines", line=dict(color=LIME, width=2), name="carbon intensity",
+    hovertemplate="%{x:02d}:00 · %{y:.0f} gCO₂/kWh<extra></extra>",
+))
+sh, an = window(17)
+steps = []
+for s in range(21):
+    s_sh, s_an = window(s)
+    steps.append(dict(method="relayout", label=f"{s:02d}", args=[{"shapes": s_sh, "annotations": s_an}]))
+fig.update_layout(
+    height=380, shapes=sh, annotations=an, showlegend=False,
+    xaxis=dict(tickvals=[0, 6, 12, 18, 23], ticktext=["00:00", "06:00", "12:00", "18:00", "23:00"], title=""),
+    yaxis=dict(title=dict(text="gCO₂/kWh", font=dict(family=viz.MONO, size=11))),
+    sliders=[dict(
+        active=17, steps=steps, currentvalue=dict(prefix="job starts at ", suffix=":00",
+        font=dict(family=viz.MONO, size=12, color=INK)), pad=dict(t=28),
+        bgcolor=GRID, activebgcolor=MUTED, bordercolor=GRID, tickcolor=MUTED,
+        font=dict(family=viz.MONO, size=9, color=MUTED),
+    )],
 )
-fig.update_layout(margin=dict(l=0, r=0, t=10, b=0))
-fig.show()
+fig.show(config=CONFIG)
 ```
+
+::: {.claim}
+The cheapest climate action a computer can take is to look at the clock.
+:::
+
+## Not one lucky day
+
+That July day is not an outlier. Across 2024–2025, the median German day offered
+a **`{python} f"{gap_med:.0f}"` gCO₂/kWh gap** between its cleanest and
+dirtiest four-hour window — the clean one landing between 09:00 and 14:00 on
+`{python} f"{midday_share:.0%}"` of days, when solar output peaks. The pattern
+is strongly seasonal: deep, reliable midday valleys in summer, flatter and
+windier days in winter.
+
+```{python}
+#| echo: false
+#| fig-cap: "Mean carbon intensity of German electricity by hour and month, 2024–2025. Computed from ENTSO-E generation data."
+months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+scale = [[i / (len(SEQ) - 1), c] for i, c in enumerate(SEQ)]
+fig = go.Figure(go.Heatmap(
+    z=heat_de.T.to_numpy(), x=hours, y=months, colorscale=scale,
+    colorbar=dict(title=dict(text="gCO₂/kWh", font=dict(family=viz.MONO, size=10)),
+                  tickfont=dict(family=viz.MONO, size=10, color=MUTED), thickness=10, outlinewidth=0),
+    hovertemplate="%{y} · %{x:02d}:00 · %{z:.0f} gCO₂/kWh<extra></extra>", xgap=1, ygap=1,
+))
+fig.update_layout(height=420, xaxis=dict(tickvals=[0, 6, 12, 18, 23],
+                  ticktext=["00:00", "06:00", "12:00", "18:00", "23:00"]), yaxis=dict(autorange="reversed"))
+fig.show(config=CONFIG)
+```
+
+## Can you see it coming?
+
+A schedule is only as good as its forecast: at midnight you must commit
+tomorrow's plan. We trained a gradient-boosted model on 2024 to predict hourly
+carbon intensity up to 36 hours ahead, then tested it on all of 2025 — never
+letting it see information that wasn't public at forecast time.
+
+The decisive ingredient is not the model. It is Germany's **day-ahead wind and
+solar forecasts**, published daily by grid operators. With them, mid-range error
+drops by more than half; the carbon intensity of a solar-heavy grid is, to a
+large degree, a weather forecast wearing an emissions factor.
+
+```{python}
+#| echo: false
+#| fig-cap: "Mean absolute error of day-ahead CI forecasts by horizon, test year 2025. Lower is better."
+buckets = ["1-6h", "7-12h", "13-24h", "25-36h"]
+models = [("persistence", "Persistence", REF_GRAY), ("seasonal_naive", "Seasonal naïve", ORANGE),
+          ("lgbm", "LightGBM", CYAN), ("lgbm_exog", "LightGBM + wind/solar forecast", LIME)]
+fig = go.Figure()
+for col, label, color in models:
+    fig.add_bar(x=buckets, y=mae.loc[buckets, col], name=label, marker=dict(color=color),
+                hovertemplate=label + " · %{x} · MAE %{y:.0f} g/kWh<extra></extra>")
+fig.update_layout(height=380, barmode="group", bargap=0.25, bargroupgap=0.08,
+                  yaxis=dict(title=dict(text="MAE, gCO₂/kWh", font=dict(family=viz.MONO, size=11))),
+                  xaxis=dict(title=dict(text="forecast horizon", font=dict(family=viz.MONO, size=11))))
+fig.show(config=CONFIG)
+```
+
+Overall the model beats a seasonal-naïve baseline by
+**`{python} f"{skill:.0%}"`** — and in the window that matters for scheduling
+(the next 24 hours), its error is `{python} f"{mae.loc['13-24h','lgbm_exog']:.0f}"` g/kWh
+against the baseline's `{python} f"{mae.loc['13-24h','seasonal_naive']:.0f}"`.
 
 ## The experiment
 
-One four-hour training job per day, free to run at any hour. Scheduled by our
-day-ahead forecast instead of at a random time, over a year it emitted
-**`{python} f"{saving:.0f}%"` less CO₂** — with perfect foresight the ceiling is
-`{python} f"{100 * (1 - totals['oracle'] / totals['naive']):.0f}%"`.
+So: one four-hour training job at five kilowatts, every day of 2025, free to
+start at any hour. Three schedulers compete. One picks a random hour — the
+computer that doesn't look at the clock. One follows our forecast, committed the
+night before. One cheats: perfect knowledge of the future, the physical ceiling.
 
-*(Full narrative, the drag-the-job interactive, and the German story to come.)*
+```{python}
+#| echo: false
+#| fig-cap: "Total 2025 emissions of the daily 4-hour job under three scheduling policies, DE grid."
+bars = [("Random start", totals["naive"], REF_GRAY, ""),
+        ("Forecast picks the hour", totals["forecast"], LIME, f"−{save_fc:.0%}"),
+        ("Perfect foresight", totals["oracle"], "rgba(0,0,0,0)", f"−{save_or:.0%}")]
+fig = go.Figure()
+for label, val, color, delta in bars:
+    outline = dict(color=LIME, width=1.5) if color == "rgba(0,0,0,0)" else dict(width=0)
+    fig.add_bar(y=[label], x=[val], orientation="h", marker=dict(color=color, line=outline),
+                text=f"<b>{val:,.0f} kg</b>  {delta}", textposition="outside",
+                textfont=dict(family=viz.MONO, size=12, color=INK),
+                hovertemplate=label + " · %{x:,.0f} kg CO₂<extra></extra>", showlegend=False)
+fig.update_layout(height=260, xaxis=dict(range=[0, totals["naive"] * 1.35], title=""),
+                  yaxis=dict(autorange="reversed"), bargap=0.45)
+fig.show(config=CONFIG)
+```
+
+The forecast scheduler cut emissions by **`{python} f"{save_fc:.0%}"`**. The
+omniscient one managed `{python} f"{save_or:.0%}"`. In other words, an ordinary
+public-data forecast captures **`{python} f"{headroom:.0%}"` of the theoretical
+maximum** — on a solar-shaped grid, tomorrow's clean window is simply not that
+hard to see coming. Per job that is `{python} f"{kg_saved:.0f}"` kg of CO₂ a
+year, the footprint of driving `{python} f"{kg_saved/0.12:,.0f}"` km. Across a
+fleet of a thousand such jobs: `{python} f"{kg_saved:.0f}"` tonnes.
+
+## Or just move?
+
+Timing is not the only degree of freedom — batch compute can also change
+country. Great Britain's grid, gas-and-wind shaped and free of lignite, ran
+cleaner than Germany's on `{python} f"{uk_share:.0%}"` of 2025 days.
+
+```{python}
+#| echo: false
+#| fig-cap: "Mean carbon intensity by month, 2024–2025: Germany vs Great Britain."
+m_de = daily[daily.country == "DE"].set_index("day").mean_ci
+m_uk = daily[daily.country == "UK"].set_index("day").mean_ci
+fig = go.Figure()
+for name, s, color in [("Germany", m_de, LIME), ("Great Britain", m_uk, CYAN)]:
+    ms = s.groupby(pd.to_datetime(s.index).to_period("M")).mean()
+    fig.add_scatter(x=ms.index.to_timestamp(), y=ms, mode="lines", name=name,
+                    line=dict(color=color, width=2),
+                    hovertemplate=name + " · %{x|%b %Y} · %{y:.0f} g/kWh<extra></extra>")
+fig.update_layout(height=340, yaxis=dict(title=dict(text="gCO₂/kWh", font=dict(family=viz.MONO, size=11)),
+                  rangemode="tozero"))
+fig.show(config=CONFIG)
+```
+
+```{python}
+#| echo: false
+#| fig-cap: "The same daily job, 2025 total: staying and timing vs moving. Green = Germany, blue = Great Britain."
+opts = [("Stay DE · random hour", st.de_naive, LIME, 0.45),
+        ("Stay DE · best hour", st.de_oracle, LIME, 1.0),
+        ("Move UK · random hour", st.uk_naive, CYAN, 0.45),
+        ("Move UK · best hour", st.uk_oracle, CYAN, 1.0)]
+fig = go.Figure()
+for label, val, color, op in opts:
+    fig.add_bar(y=[label], x=[val], orientation="h", marker=dict(color=color, opacity=op),
+                text=f"<b>{val:,.0f} kg</b>  −{1 - val / st.de_naive:.0%}" if val < st.de_naive else f"<b>{val:,.0f} kg</b>",
+                textposition="outside", textfont=dict(family=viz.MONO, size=12, color=INK),
+                hovertemplate=label + " · %{x:,.0f} kg CO₂<extra></extra>", showlegend=False)
+fig.update_layout(height=300, xaxis=dict(range=[0, st.de_naive * 1.4]), yaxis=dict(autorange="reversed"), bargap=0.4)
+fig.show(config=CONFIG)
+```
+
+Moving beats waiting: relocating the job to Britain saves more than perfect
+timing in Germany ever could. But the comparison is not symmetric. Changing
+*when* a job runs costs nothing — no data transfer, no residency questions, no
+second data centre. Changing *where* is an infrastructure decision. The honest
+reading: **timing is the free lever, geography is the big one**, and they
+compound — a timed job in Britain emits `{python} f"{1 - st.uk_oracle / st.de_naive:.0%}"`
+less than a random one in Germany.
+
+## What this doesn't fix
+
+Carbon-aware scheduling optimises *when*, not *how much*. The job still burns
+the same kilowatt-hours; the grid still burns what it burns. Three honest
+limits:
+
+- **Average, not marginal.** We price each hour at the grid's average intensity.
+  The *marginal* plant answering one extra kilowatt is often gas regardless of
+  hour, so system-level savings from small shifts are smaller than average-based
+  accounting suggests. At fleet scale, though, demand that reliably chases clean
+  hours changes what gets built — the long-run signal points the same way.
+- **Production, not consumption.** Our intensity ignores imports and exports;
+  German midday solar partly flows abroad, and winter imports flow in.
+- **Timing is a complement, not an alibi.** The real decarbonisation is the
+  grid's own. Flexible demand just stops wasting the clean hours the grid
+  already produces — a lever that is real, measurable, and free, but a lever,
+  not an engine.
+
+## Methods
+
+Carbon intensity is computed from [ENTSO-E](https://transparency.entsoe.eu/)
+actual generation per production type for bidding zone DE-LU (15-minute
+resolution, 2024–2025), weighted by IPCC lifecycle emission factors per fuel,
+resampled hourly. The series correlates at **r = 0.992** with the independent
+[Energy-Charts](https://energy-charts.info) (Fraunhofer ISE) reference; our
+conservative lignite factor gives a −74 g/kWh level offset that does not affect
+timing decisions. British data comes from the
+[NESO Carbon Intensity API](https://carbonintensity.org.uk/).
+
+The forecaster is a LightGBM model over lagged CI, calendar features, and
+ENTSO-E day-ahead wind, solar, and load forecasts, trained on 2024, tested
+out-of-sample on 2025 from daily midnight origins, horizons 1–36 h. Day-ahead
+exogenous forecasts are only used for horizons where they were genuinely
+published. The scheduling simulation settles every policy against actual
+intensity. The job spec (4 h at 5 kW ≈ one 8-GPU node) is a scale anchor —
+percentages are independent of it.
+
+Code, tests, and reproduction steps: **[github repository]** — every figure on
+this page rebuilds from public APIs with two commands.
+
+::: {.small-note}
+Data: ENTSO-E Transparency Platform · NESO Carbon Intensity API · Energy-Charts
+(Fraunhofer ISE). Analysis and site: Python, LightGBM, Plotly, Quarto.
+July 2026.
+:::
