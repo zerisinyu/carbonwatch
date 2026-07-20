@@ -18,3 +18,9 @@ data/raw/
 # Quarto build output
 site/_site/
 site/.quarto/
+
+# Personal learning material (not part of the project)
+walkthrough.html
+
+# Claude Code local config
+.claude/
